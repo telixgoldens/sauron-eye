@@ -1,4 +1,3 @@
-# init_db.py
 import os
 from dotenv import load_dotenv
 from database.schema import init_db

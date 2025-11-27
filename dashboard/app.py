@@ -6,17 +6,57 @@ import plotly.express as px
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
-# --- PATH FIX ---
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ai_agent.backend import AnalyticsAgent 
+from analytics.graph_algo import SuspiciousBehaviorDetector 
 
 load_dotenv()
 
-# --- SETUP ---
-st.set_page_config(page_title="Babylon Analytics", layout="wide")
-st.title("🦁 Babylon Chain Analytics (Prototype)")
+api_key = os.getenv("OPENAI_API_KEY")
 
-# Database Connection
+st.set_page_config(page_title="Sauron Eye", layout="wide")
+st.title("Sauron Eye (Babylon Chain Analytics)")
+# --- CUSTOM CSS FOR "SAURON EYE" THEME ---
+st.markdown("""
+    <style>
+    /* Main Background (Optional: Streamlit handles dark mode, but this enforces it) */
+    .stApp {
+        background-color: #0E1117;
+        color: #FAFAFA;
+    }
+    
+    /* Bigger Header Text */
+    h1 {
+        font-size: 3.5rem !important;
+        color: #FF4B4B !important; /* Sauron Red/Orange */
+        text-align: center;
+        text-shadow: 0px 0px 10px rgba(255, 75, 75, 0.5);
+    }
+    
+    h2, h3 {
+        font-size: 2rem !important;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+    
+    /* Bigger Metric Numbers */
+    div[data-testid="stMetricValue"] {
+        font-size: 3rem !important;
+        color: #FFA500 !important; /* Gold/Fire */
+    }
+    
+    /* Bigger Body Text & Table Text */
+    p, .stDataFrame, div[data-testid="stMarkdownContainer"] p {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Warning/Error Boxes Bigger */
+    .stAlert {
+        font-size: 1.1rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 @st.cache_resource
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
@@ -24,13 +64,12 @@ def get_db_connection():
 
 engine = get_db_connection()
 
-# --- HELPER FUNCTIONS ---
+@st.cache_data(ttl=60) 
 def load_data():
-    """Load all transactions for the Overview"""
-    query = "SELECT * FROM transactions ORDER BY timestamp DESC"
+    """Load recent transactions for the Overview"""
+    query = "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 2000"
     df = pd.read_sql(query, engine)
     
-    # Basic Labeling Logic
     def get_label(amount):
         if amount > 4000: return "🐋 Whale"
         if amount < 10: return "🦐 Shrimp"
@@ -39,99 +78,95 @@ def load_data():
     df['Risk Label'] = df['amount'].apply(get_label)
     return df
 
-def load_wallet_stats(address):
-    """Load specific stats for one wallet (Investigator Mode)"""
-    # We use parameterized queries for security (prevent SQL Injection)
-    query = f"SELECT * FROM transactions WHERE sender = '{address}' ORDER BY timestamp DESC"
-    df = pd.read_sql(query, engine)
-    return df
+tab1, tab2, tab3 = st.tabs(["Network Overview", "Wallet Inspector", "AI Analyst"])
 
-# --- TABS LAYOUT ---
-tab1, tab2, tab3 = st.tabs(["📊 Network Overview", "🕵️ Wallet Inspector", "🤖 AI Analyst"])
-
-# ==========================================
-# TAB 1: NETWORK OVERVIEW
-# ==========================================
 with tab1:
     df = load_data()
-    
-    # Top Metrics
+
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Transactions", len(df))
     col1.metric("Total Volume", f"{df['amount'].sum():,} BBN")
     col2.metric("Active Addresses", df['sender'].nunique())
     col3.metric("Whale Count", len(df[df['Risk Label'] == "🐋 Whale"]))
 
-    # Charts
     st.subheader("Transaction History")
-    # Group by date (using string manipulation for simplicity in prototype)
-    df['date'] = pd.to_datetime(df['timestamp']).dt.date
-    daily_vol = df.groupby('date')['amount'].sum().reset_index()
-    
-    fig = px.bar(daily_vol, x='date', y='amount', title="Daily Transaction Volume")
-    st.plotly_chart(fig, use_container_width=True)
+    if not df.empty:
+        df['date'] = pd.to_datetime(df['timestamp']).dt.date
+        daily_vol = df.groupby('date')['amount'].sum().reset_index()
+        fig = px.bar(daily_vol, x='date', y='amount', title="Daily Transaction Volume")
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Data Table
     st.subheader("Live Feed")
     st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(20))
 
-# ==========================================
-# TAB 2: WALLET INSPECTOR (Compliance)
-# ==========================================
 with tab2:
     st.header("🔎 Address Investigation")
     
-    # Dropdown to pick a wallet (or type one)
     all_senders = df['sender'].unique().tolist()
     target_address = st.selectbox("Select or Type Address to Inspect:", options=all_senders)
     
     if target_address:
-        wallet_df = load_wallet_stats(target_address)
-        
+        wallet_df = df[df['sender'] == target_address]
         if not wallet_df.empty:
-            # Wallet Profile
+            detector = SuspiciousBehaviorDetector()
+            for _, row in wallet_df.iterrows():
+                detector.add_transaction(row['sender'], "simulated_receiver", row['amount'], row['timestamp'])
+            
+            fan_outs = detector.detect_fan_out(min_recipients=5) 
+            
             st.markdown(f"### Profile: `{target_address}`")
             
-            # Advanced Heuristics (Smart Money Logic)
-            first_seen = pd.to_datetime(wallet_df['timestamp']).min()
-            days_active = (pd.to_datetime("now") - first_seen).days
-            total_sent = wallet_df['amount'].sum()
-            avg_tx = wallet_df['amount'].mean()
-            
-            # Compliance Tags
-            tags = []
-            if total_sent > 10000: tags.append("💰 High Net Worth")
-            if days_active > 30: tags.append("💎 Diamond Hand") # Active for > 30 days
-            if len(wallet_df) > 50: tags.append("🤖 Bot / High Freq")
-            
-            # Display Profile
             w_col1, w_col2, w_col3 = st.columns(3)
-            w_col1.metric("First Seen", f"{days_active} days ago")
-            w_col2.metric("Total Staked/Sent", f"{total_sent:,} BBN")
-            w_col3.metric("Risk Score", "Low" if len(tags) < 2 else "High ⚠️")
+            total_sent = wallet_df['amount'].sum()
+            w_col1.metric("Tx Count", len(wallet_df))
+            w_col2.metric("Total Volume", f"{total_sent:,} BBN")
             
-            st.write("🏷️ **Tags:** " + ", ".join(tags) if tags else "No special tags")
+            risk_score = 0
+            tags = []
+            
+            if len(fan_outs) > 0: 
+                risk_score += 50
+                tags.append("Fan-Out Behavior")
+            if total_sent > 10000: 
+                risk_score += 20
+                tags.append(" Whale")
+            
+            w_col3.metric("Risk Score", f"{risk_score}/100", delta_color="inverse" if risk_score > 0 else "normal")
+            
+            st.write(" **Compliance Tags:** " + (", ".join(tags) if tags else " Clean"))
+            
+            if fan_outs:
+                st.error(f" Detected {len(fan_outs)} suspicious 'Fan Out' events (sending to many addresses quickly).")
+                st.write(fan_outs)
             
             st.divider()
             st.caption("Recent Activity")
             st.dataframe(wallet_df)
+
+            st.divider()
+            st.subheader("AI Forensic Report")
+            
+            if st.button(f"Analyze {target_address[:8]}... with AI"):
+                if not api_key:
+                    st.error("Need OpenAI Key in .env")
+                else:
+                    with st.spinner("Consulting forensic database..."):
+                        agent = AnalyticsAgent(api_key=api_key)
+                        try:
+                            analysis = agent.analyze_wallet_deep_dive(target_address)
+                            st.markdown("Investigator's Findings")
+                            st.info(analysis)
+                        except Exception as e:
+                            st.error(f"Analysis failed: {e}")
+
         else:
             st.warning("No transactions found for this address.")
 
-# ==========================================
-# TAB 3: AI ANALYST
-# ==========================================
 with tab3:
-    st.header("🤖 Ask the Data")
+    st.header("Ask the Data")
     
-    api_key = os.getenv("OPENAI_API_KEY")
     agent = AnalyticsAgent(api_key=api_key)
 
-    # Suggested Questions
-    st.caption("Try asking:")
-    st.markdown("*'Who are the top 3 whales by volume?'*")
-    st.markdown("*'List all transactions sent by [paste an address]'*")
-    
     query = st.chat_input("Ask a question about the blockchain data...")
     
     if query:
@@ -140,7 +175,7 @@ with tab3:
             
         with st.chat_message("assistant"):
             if not api_key:
-                st.error("⚠️ Please add OPENAI_API_KEY to .env to use this feature.")
+                st.error("Please add OPENAI_API_KEY to .env to use this feature.")
             else:
                 with st.spinner("Analyzing chain data..."):
                     try:
