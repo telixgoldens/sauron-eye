@@ -1,12 +1,14 @@
 import requests
 
 CANDIDATES = [
-    "https://babylon-api.polkachu.com/babylon/btclightclient/v1/tip",             
+                
     "https://babylon.api.kjnodes.com",              
-    "https://babylon-mainnet.api.kjnodes.com",      
+    "https://babylon-mainnet.api.kjnodes.com", 
+    "https://babylon-archive.nodes.guru/api",     
     "https://api.babylon.nodes.guru",               
     "https://babylon-api.lavenderfive.com",         
-    "https://babylon-api.dankhash.net"              
+    "https://babylon-api.dankhash.net" ,
+    "https://mainnet-babylon-api.highstakes.ch"             
 ]
 
 print("Scanning for working Babylon Mainnet Nodes...")

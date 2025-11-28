@@ -1,6 +1,5 @@
-
-from sqlalchemy import create_engine, Column, String, Integer, BigInteger, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, Column, String, Integer, BigInteger, DateTime, Boolean, JSON
+from sqlalchemy.orm import declarative_base  
 
 Base = declarative_base()
 
@@ -13,6 +12,8 @@ class Transaction(Base):
     sender = Column(String)
     amount = Column(BigInteger)
     timestamp = Column(DateTime)
+    tx_type = Column(String) 
+    details = Column(JSON)    
 
 class AddressLabel(Base):
     __tablename__ = 'address_labels'

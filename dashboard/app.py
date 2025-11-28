@@ -7,7 +7,6 @@ from sqlalchemy import create_engine
 import streamlit.components.v1 as components 
 from dotenv import load_dotenv
 from PIL import Image
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ai_agent.backend import AnalyticsAgent 
 from analytics.graph_algo import SuspiciousBehaviorDetector 
@@ -17,13 +16,11 @@ load_dotenv()
 
 api_key = os.getenv("OPENAI_API_KEY")
 
-
-logo_path = "dashboard/assets/sauroneye.png"
+logo_path = "dashboard/assets/sauroneye.png" 
 try:
     logo_img = Image.open(logo_path)
 except FileNotFoundError:
     logo_img = "👁️" 
-
 
 st.set_page_config(
     page_title="Sauron Eye", 
@@ -50,10 +47,8 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 15]) 
-
 with col1:
     st.image(logo_img, width=90) 
-
 with col2:
     st.markdown('<h2 class="title-text">SAURON EYE</h2>', unsafe_allow_html=True)
 
@@ -62,7 +57,6 @@ st.divider()
 
 with st.sidebar:
     st.header("Babylon Live")
-    
     twitter_embed = """
     <a class="twitter-timeline" data-width="300" data-height="600" data-theme="dark" href="https://twitter.com/babylonlabs_io?ref_src=twsrc%5Etfw">Tweets by babylonlabs_io</a> 
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
@@ -80,18 +74,25 @@ engine = get_db_connection()
 def load_data():
     query = "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 2000"
     df = pd.read_sql(query, engine)
-    df['Risk Label'] = df['amount'].apply(lambda x: " Whale" if x > 4000 else ("Shrimp" if x < 10 else " User"))
+    df['Risk Label'] = df['amount'].apply(lambda x: " Whale" if x > 4000 else (" Shrimp" if x < 10 else " User"))
+    
+    if 'tx_type' not in df.columns:
+        df['tx_type'] = 'Unknown'
+    else:
+        df['tx_type'] = df['tx_type'].fillna('Unknown')
+        
     return df
 
 
-tab1, tab2, tab3 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst"])
+tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst", "⚡ Protocol Activity"])
+
 
 with tab1:
     df = load_data()
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Transactions", len(df))
     col1.metric("Total Volume", f"{df['amount'].sum():,} BBN")
-    col3.metric("Whales Detected", len(df[df['Risk Label'] == " Whale"]))
+    col3.metric("Whales Detected", len(df[df['Risk Label'] == "🐋 Whale"]))
 
     if not df.empty:
         df['date'] = pd.to_datetime(df['timestamp']).dt.date
@@ -101,9 +102,14 @@ with tab1:
 
     st.subheader("Live Feed")
     st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
+    
+    st.subheader("Transaction Types")
+    type_counts = df['tx_type'].value_counts()
+    st.bar_chart(type_counts)
+
 
 with tab2:
-    st.header(" Wallet Cluster Inspector")
+    st.header("Wallet Cluster Inspector")
     
     all_senders = df['sender'].unique().tolist()
     target_address = st.selectbox("Select Target Address:", options=all_senders)
@@ -124,7 +130,8 @@ with tab2:
             st.markdown("### Risk Profile")
             
             detector = SuspiciousBehaviorDetector()
-            for _, row in cluster_df.iterrows():
+            filtered_df = df[df['sender'] == target_address] 
+            for _, row in filtered_df.iterrows():
                 detector.add_transaction(row['sender'], "unknown", row['amount'], row['timestamp'])
             
             fan_outs = detector.detect_fan_out(min_recipients=1)
@@ -133,7 +140,7 @@ with tab2:
                 st.error("Fan-Out Detected")
                 st.metric("Risk Score", "90/100")
             else:
-                st.success(" Normal Behavior")
+                st.success("Normal Behavior")
                 st.metric("Risk Score", "10/100")
                 
             st.divider()
@@ -159,3 +166,38 @@ with tab3:
             else:
                 with st.spinner("Thinking..."):
                     st.write(agent.ask(query))
+
+
+with tab4:
+    st.header("⚡ Protocol Activity Breakdown")
+    
+    if not df.empty and 'tx_type' in df.columns:
+        type_counts = df['tx_type'].value_counts().reset_index()
+        type_counts.columns = ['Type', 'Count']
+        
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            fig_pie = px.pie(type_counts, values='Count', names='Type', title="Transaction Distribution", hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+            st.plotly_chart(fig_pie)
+            
+        with col_b:
+            st.markdown("### Key Metrics")
+        
+            btc_stakes = df[df['tx_type'] == "BTC_Stake"]
+            votes = df[df['tx_type'] == "Governance_Vote"]
+            delegations = df[df['tx_type'] == "Delegate"]
+            
+            st.metric("BTC Delegations (Staking)", len(btc_stakes))
+            st.metric("Governance Votes", len(votes))
+            st.metric("Validator Delegations", len(delegations))
+
+        st.subheader("Deep Dive Log")
+        st.caption("Inspect raw metadata (BTC PKs, Validator addresses, etc.)")
+        
+        display_cols = ['timestamp', 'tx_hash', 'tx_type', 'details']
+        final_cols = [c for c in display_cols if c in df.columns]
+        
+        st.dataframe(df[final_cols], use_container_width=True)
+    else:
+        st.info("No transaction type data available yet. Run the updated indexer to capture types.")

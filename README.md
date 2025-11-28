@@ -37,3 +37,6 @@ cd sauron-eye
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+
+docker exec -it babylon_postgres psql -U admin -d babylon_db -c "TRUNCATE TABLE transactions;"
