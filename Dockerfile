@@ -24,7 +24,8 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
 
-CMD ["/app/run.sh"]
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl --fail http://localhost:$PORT/_stcore/health || exit 1
+
+CMD ["python", "run_app.py"]
