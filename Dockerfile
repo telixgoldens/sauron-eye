@@ -25,4 +25,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
-CMD ["python", "-m", "indexer.babylon_fetcher"]
+CMD sh -c "streamlit run dashboard/app.py --server.port=$PORT --server.address=0.0.0.0"
