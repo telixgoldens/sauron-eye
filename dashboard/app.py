@@ -31,16 +31,13 @@ st.set_page_config(
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
-    
-    /* Title Styling */
     .title-text {
-        font-size: 2rem !important;
+        font-size: 2.5rem !important;
         color: #FF4B4B !important; 
         text-shadow: 0px 0px 15px rgba(255, 75, 75, 0.4); 
-        font-weight: 750;
+        font-weight: 700;
         margin-bottom: 0px;
     }
-    
     div[data-testid="stMetricValue"] { font-size: 2.5rem !important; color: #FFA500 !important; }
     iframe { border: none !important; }
     </style>
@@ -58,27 +55,24 @@ st.divider()
 with st.sidebar:
     st.header("Babylon Live")
     twitter_embed = """
-    <a class="twitter-timeline" data-width="300" data-height="600" data-theme="dark" href="https://twitter.com/babylonlabs_io?ref_src=twsrc%5Etfw">Tweets by babylonlabs_io</a> 
+    <a class="twitter-timeline" data-width="300" data-height="400" data-theme="dark" href="https://twitter.com/babylonlabs_io?ref_src=twsrc%5Etfw">Tweets by babylonlabs_io</a> 
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
     """
-    components.html(twitter_embed, height=600, scrolling=True)
+    components.html(twitter_embed, height=400, scrolling=True)
+    
     st.divider()
     st.header(" Admin (Demo Mode)")
     if st.button("RESET & SEED DATA"):
         with st.spinner("Planting evidence..."):
             try:
                 from seed_crime_data import run_seed 
-                
                 run_seed()
-                
                 st.cache_data.clear()
-                
                 st.success("Data Planted!")
-                
-                st.rerun()
-                
+                st.rerun() 
             except Exception as e:
                 st.error(f"Seeding failed: {e}")
+
 @st.cache_resource
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
@@ -93,7 +87,7 @@ def load_data():
         df = pd.read_sql(query, engine)
         
         df['Risk Label'] = df['amount'].apply(lambda x: "🐋 Whale" if x > 4000 else ("🦐 Shrimp" if x < 10 else "👤 User"))
-        
+    
         if 'tx_type' not in df.columns:
             df['tx_type'] = 'Unknown'
         else:
@@ -103,15 +97,14 @@ def load_data():
     except Exception:
         return pd.DataFrame(columns=['sender', 'amount', 'timestamp', 'tx_hash', 'tx_type', 'details', 'Risk Label'])
 
+df = load_data()
+
 tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst", "⚡ Protocol Activity"])
 
-
 with tab1:
-    df = load_data()
-    
     if df.empty:
         st.warning(" Database is empty or not initialized.")
-        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **' RESET & SEED DATA'** to initialize the database.")
+        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **'🔴 RESET & SEED DATA'**.")
     else:
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Transactions", len(df))
@@ -125,15 +118,9 @@ with tab1:
 
         st.subheader("Live Feed")
         st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
-        
-        st.subheader("Transaction Types")
-        if 'tx_type' in df.columns:
-            type_counts = df['tx_type'].value_counts()
-            st.bar_chart(type_counts)
-
 
 with tab2:
-    st.header("Wallet Cluster Inspector")
+    st.header(" Wallet Cluster Inspector")
     
     if not df.empty and 'sender' in df.columns:
         all_senders = df['sender'].unique().tolist()
@@ -145,7 +132,7 @@ with tab2:
     if target_address:
         col_map, col_stats = st.columns([3, 1])
         
-        cluster_df = df.head(500)
+        cluster_df = df.head(1000)
         
         with col_map:
             if not cluster_df.empty:
@@ -156,7 +143,6 @@ with tab2:
 
         with col_stats:
             st.markdown("### Risk Profile")
-            
             detector = SuspiciousBehaviorDetector()
             filtered_df = df[df['sender'] == target_address] 
             for _, row in filtered_df.iterrows():
@@ -168,7 +154,7 @@ with tab2:
                 st.error("Fan-Out Detected")
                 st.metric("Risk Score", "90/100")
             else:
-                st.success("Normal Behavior")
+                st.success(" Normal Behavior")
                 st.metric("Risk Score", "10/100")
                 
             st.divider()
@@ -183,7 +169,7 @@ with tab2:
                         st.info(analysis)
 
 with tab3:
-    st.header("Ask Sauron")
+    st.header(" Ask Sauron")
     agent = AnalyticsAgent(api_key=api_key)
     query = st.chat_input("Ask a question...")
     
@@ -194,7 +180,6 @@ with tab3:
             else:
                 with st.spinner("Thinking..."):
                     st.write(agent.ask(query))
-
 
 with tab4:
     st.header("⚡ Protocol Activity Breakdown")
@@ -211,7 +196,6 @@ with tab4:
             
         with col_b:
             st.markdown("### Key Metrics")
-        
             btc_stakes = df[df['tx_type'] == "BTC_Stake"]
             votes = df[df['tx_type'] == "Governance_Vote"]
             delegations = df[df['tx_type'] == "Delegate"]
@@ -221,11 +205,8 @@ with tab4:
             st.metric("Validator Delegations", len(delegations))
 
         st.subheader("Deep Dive Log")
-        st.caption("Inspect raw metadata (BTC PKs, Validator addresses, etc.)")
-        
         display_cols = ['timestamp', 'tx_hash', 'tx_type', 'details']
         final_cols = [c for c in display_cols if c in df.columns]
-        
         st.dataframe(df[final_cols], use_container_width=True)
     else:
-        st.info("No transaction type data available yet. Run the updated indexer to capture types.")
+        st.info("No protocol data found. Try resetting the data.")
