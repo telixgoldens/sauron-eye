@@ -84,40 +84,48 @@ engine = get_db_connection()
 
 @st.cache_data(ttl=60)
 def load_data():
-    query = "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 2000"
-    df = pd.read_sql(query, engine)
-    df['Risk Label'] = df['amount'].apply(lambda x: " Whale" if x > 4000 else (" Shrimp" if x < 10 else " User"))
-    
-    if 'tx_type' not in df.columns:
-        df['tx_type'] = 'Unknown'
-    else:
-        df['tx_type'] = df['tx_type'].fillna('Unknown')
+    try:
+        query = "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 2000"
+        df = pd.read_sql(query, engine)
         
-    return df
-
+        df['Risk Label'] = df['amount'].apply(lambda x: "🐋 Whale" if x > 4000 else ("🦐 Shrimp" if x < 10 else "👤 User"))
+        
+        if 'tx_type' not in df.columns:
+            df['tx_type'] = 'Unknown'
+        else:
+            df['tx_type'] = df['tx_type'].fillna('Unknown')
+            
+        return df
+    except Exception as e:
+        return pd.DataFrame()
 
 tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst", "⚡ Protocol Activity"])
 
 
 with tab1:
     df = load_data()
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Transactions", len(df))
-    col1.metric("Total Volume", f"{df['amount'].sum():,} BBN")
-    col3.metric("Whales Detected", len(df[df['Risk Label'] == "🐋 Whale"]))
+    
+    if df.empty:
+        st.warning(" Database is empty or not initialized.")
+        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **' RESET & SEED DATA'** to initialize the database.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Transactions", len(df))
+        col1.metric("Total Volume", f"{df['amount'].sum():,} BBN")
+        col3.metric("Whales Detected", len(df[df['Risk Label'] == "🐋 Whale"]))
 
-    if not df.empty:
         df['date'] = pd.to_datetime(df['timestamp']).dt.date
         daily_vol = df.groupby('date')['amount'].sum().reset_index()
         fig = px.bar(daily_vol, x='date', y='amount', title="Daily Transaction Volume", color_discrete_sequence=['#FF4B4B'])
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Live Feed")
-    st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
-    
-    st.subheader("Transaction Types")
-    type_counts = df['tx_type'].value_counts()
-    st.bar_chart(type_counts)
+        st.subheader("Live Feed")
+        st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
+        
+        st.subheader("Transaction Types")
+        if 'tx_type' in df.columns:
+            type_counts = df['tx_type'].value_counts()
+            st.bar_chart(type_counts)
 
 
 with tab2:
