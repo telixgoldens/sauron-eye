@@ -34,10 +34,10 @@ st.markdown("""
     
     /* Title Styling */
     .title-text {
-        font-size: 3rem !important;
+        font-size: 2rem !important;
         color: #FF4B4B !important; 
         text-shadow: 0px 0px 15px rgba(255, 75, 75, 0.4); 
-        font-weight: 800;
+        font-weight: 750;
         margin-bottom: 0px;
     }
     
@@ -48,7 +48,7 @@ st.markdown("""
 
 col1, col2 = st.columns([1, 15]) 
 with col1:
-    st.image(logo_img, width=90) 
+    st.image(logo_img, width=100) 
 with col2:
     st.markdown('<h2 class="title-text">SAURON EYE</h2>', unsafe_allow_html=True)
 
@@ -96,8 +96,8 @@ def load_data():
             df['tx_type'] = df['tx_type'].fillna('Unknown')
             
         return df
-    except Exception as e:
-        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame(columns=['sender', 'amount', 'timestamp', 'tx_hash', 'tx_type', 'details', 'Risk Label'])
 
 tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst", "⚡ Protocol Activity"])
 
@@ -131,7 +131,11 @@ with tab1:
 with tab2:
     st.header("Wallet Cluster Inspector")
     
-    all_senders = df['sender'].unique().tolist()
+    if not df.empty and 'sender' in df.columns:
+        all_senders = df['sender'].unique().tolist()
+    else:
+        all_senders = []
+
     target_address = st.selectbox("Select Target Address:", options=all_senders)
     
     if target_address:
