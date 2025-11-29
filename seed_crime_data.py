@@ -7,32 +7,36 @@ from database.schema import Transaction, Base
 from dotenv import load_dotenv
 import os
 
-
 load_dotenv()
 
 def run_seed():
     """
     Master Seed Function:
-    1. Clears DB
-    2. Plants 'Crime Scene' (Fan Out)
-    3. Plants 'Cluster' (Bot Army)
-    4. Adds Noise
+    1. Creates Tables (if missing)
+    2. Clears Old Data
+    3. Plants 'Crime Scene' & 'Clusters'
     """
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        print(" Error: DATABASE_URL not found")
-        return
+        raise ValueError("DATABASE_URL not found")
 
     engine = create_engine(db_url)
+    
+    Base.metadata.create_all(engine)
+    
     Session = sessionmaker(bind=engine)
     session = Session()
 
     print("Starting Master Seed Process...")
 
     try:
-        session.execute(text("TRUNCATE TABLE transactions"))
-        session.commit()
-        print(" Database Cleared.")
+        try:
+            session.execute(text("TRUNCATE TABLE transactions"))
+            session.commit()
+        except Exception:
+            session.rollback()
+            session.query(Transaction).delete()
+            session.commit()
 
         SUSPECT_ADDR = "bbn1badguy9999999999999999999999999999999"
         LAUNDER_A = "bbn1launderA..............................."
@@ -50,8 +54,6 @@ def run_seed():
 
         session.add(Transaction(tx_hash="TX_WASH_1", height=50100, sender=SUSPECT_ADDR, amount=10000, timestamp=base_time + timedelta(hours=1), tx_type="Transfer"))
         session.add(Transaction(tx_hash="TX_WASH_2", height=50101, sender=LAUNDER_A, amount=10000, timestamp=base_time + timedelta(hours=1, minutes=5), tx_type="Transfer"))
-        
-        print(f" Scene A planted: Suspect {SUSPECT_ADDR}")
 
         HUB_ADDRESS = "bbn1_MASTER_MIND_999999999999999999999"
         BOT_ARMY = [f"bbn1_bot_wallet_{i}_{secrets.token_hex(4)}" for i in range(20)]
@@ -64,7 +66,7 @@ def run_seed():
                 sender=HUB_ADDRESS, 
                 amount=random.randint(1000, 5000), 
                 timestamp=NOW - timedelta(minutes=60) + timedelta(seconds=i*10),
-                tx_type="Transfer"
+                tx_type="BTC_Stake" 
             ))
 
         tx_count = 0
@@ -76,11 +78,9 @@ def run_seed():
                     sender=bot, 
                     amount=random.randint(10, 50), 
                     timestamp=NOW - timedelta(minutes=30) + timedelta(minutes=j),
-                    tx_type="Vote" 
+                    tx_type="Governance_Vote" 
                 ))
                 tx_count += 1
-        
-        print(f"Scene B planted: MasterMind {HUB_ADDRESS}")
 
         for i in range(50):
             session.add(Transaction(
@@ -93,11 +93,12 @@ def run_seed():
             ))
 
         session.commit()
-        print(" ALL DATA INJECTED SUCCESSFULLY.")
+        print("ALL DATA INJECTED SUCCESSFULLY.")
 
     except Exception as e:
         session.rollback()
         print(f"Error during seeding: {e}")
+        raise e 
     finally:
         session.close()
 

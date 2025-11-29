@@ -63,18 +63,22 @@ with st.sidebar:
     """
     components.html(twitter_embed, height=600, scrolling=True)
     st.divider()
-    st.header("Admin (Demo Mode)")
+    st.header(" Admin (Demo Mode)")
     if st.button("RESET & SEED DATA"):
         with st.spinner("Planting evidence..."):
             try:
                 from seed_crime_data import run_seed 
                 
                 run_seed()
-                st.success("Data Reset! Reload the page.")
-                st.cache_data.clear() 
+                
+                st.cache_data.clear()
+                
+                st.success("Data Planted!")
+                
+                st.rerun()
+                
             except Exception as e:
                 st.error(f"Seeding failed: {e}")
-
 @st.cache_resource
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
