@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 import streamlit.components.v1 as components 
 from dotenv import load_dotenv
 from PIL import Image
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ai_agent.backend import AnalyticsAgent 
 from analytics.graph_algo import SuspiciousBehaviorDetector 
@@ -35,7 +36,7 @@ st.markdown("""
         font-size: 2.5rem !important;
         color: #FF4B4B !important; 
         text-shadow: 0px 0px 15px rgba(255, 75, 75, 0.4); 
-        font-weight: 700;
+        font-weight: 750;
         margin-bottom: 0px;
     }
     div[data-testid="stMetricValue"] { font-size: 2.5rem !important; color: #FFA500 !important; }
@@ -87,7 +88,7 @@ def load_data():
         df = pd.read_sql(query, engine)
         
         df['Risk Label'] = df['amount'].apply(lambda x: "🐋 Whale" if x > 4000 else ("🦐 Shrimp" if x < 10 else "👤 User"))
-    
+        
         if 'tx_type' not in df.columns:
             df['tx_type'] = 'Unknown'
         else:
@@ -104,7 +105,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)",
 with tab1:
     if df.empty:
         st.warning(" Database is empty or not initialized.")
-        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **'🔴 RESET & SEED DATA'**.")
+        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **' RESET & SEED DATA'**.")
     else:
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Transactions", len(df))
@@ -120,7 +121,7 @@ with tab1:
         st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
 
 with tab2:
-    st.header(" Wallet Cluster Inspector")
+    st.header("Wallet Cluster Inspector")
     
     if not df.empty and 'sender' in df.columns:
         all_senders = df['sender'].unique().tolist()
@@ -151,10 +152,10 @@ with tab2:
             fan_outs = detector.detect_fan_out(min_recipients=1)
             
             if len(fan_outs) > 0:
-                st.error("Fan-Out Detected")
+                st.error(" Fan-Out Detected")
                 st.metric("Risk Score", "90/100")
             else:
-                st.success(" Normal Behavior")
+                st.success("Normal Behavior")
                 st.metric("Risk Score", "10/100")
                 
             st.divider()
@@ -204,7 +205,7 @@ with tab4:
             st.metric("Governance Votes", len(votes))
             st.metric("Validator Delegations", len(delegations))
 
-        st.subheader("Deep Dive Log")
+        st.subheader(" Deep Dive Log")
         display_cols = ['timestamp', 'tx_hash', 'tx_type', 'details']
         final_cols = [c for c in display_cols if c in df.columns]
         st.dataframe(df[final_cols], use_container_width=True)
