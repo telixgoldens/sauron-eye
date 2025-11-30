@@ -68,6 +68,8 @@ def load_data():
 
 # --- SIDEBAR NAVIGATION (THE FIX) ---
 with st.sidebar:
+    st.write("🔴 **VERSION 2.0 (LIVE)**") # <--- Add this line
+    st.image(logo_img, use_container_width=True)
     st.image(logo_img, use_container_width=True)
     
     # NAVIGATION MENU
