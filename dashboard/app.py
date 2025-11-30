@@ -44,36 +44,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 15]) 
-with col1:
-    st.image(logo_img, width=100) 
-with col2:
-    st.markdown('<h2 class="title-text">SAURON EYE</h2>', unsafe_allow_html=True)
-
-st.caption("The All-Seeing Lens for Babylon Chain")
-st.divider()
-
-with st.sidebar:
-    st.header("Babylon Live")
-    twitter_embed = """
-    <a class="twitter-timeline" data-width="300" data-height="400" data-theme="dark" href="https://twitter.com/babylonlabs_io?ref_src=twsrc%5Etfw">Tweets by babylonlabs_io</a> 
-    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-    """
-    components.html(twitter_embed, height=400, scrolling=True)
-    
-    st.divider()
-    st.header(" Admin (Demo Mode)")
-    if st.button("RESET & SEED DATA"):
-        with st.spinner("Planting evidence..."):
-            try:
-                from seed_crime_data import run_seed 
-                run_seed()
-                st.cache_data.clear()
-                st.success("Data Planted!")
-                st.rerun() 
-            except Exception as e:
-                st.error(f"Seeding failed: {e}")
-
 @st.cache_resource
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
@@ -86,26 +56,56 @@ def load_data():
     try:
         query = "SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 2000"
         df = pd.read_sql(query, engine)
-        
         df['Risk Label'] = df['amount'].apply(lambda x: "🐋 Whale" if x > 4000 else ("🦐 Shrimp" if x < 10 else "👤 User"))
         
         if 'tx_type' not in df.columns:
             df['tx_type'] = 'Unknown'
         else:
             df['tx_type'] = df['tx_type'].fillna('Unknown')
-            
         return df
     except Exception:
         return pd.DataFrame(columns=['sender', 'amount', 'timestamp', 'tx_hash', 'tx_type', 'details', 'Risk Label'])
 
+with st.sidebar:
+    st.image(logo_img, width=80)
+    st.header("Navigation")
+    
+    
+    page = st.radio("Go to:", ["Network Overview", "Cluster Inspector", "Protocol Activity", "AI Analyst"])
+    
+    st.divider()
+    st.header("Babylon Live")
+    twitter_embed = """
+    <a class="twitter-timeline" data-width="300" data-height="400" data-theme="dark" href="https://twitter.com/babylonlabs_io?ref_src=twsrc%5Etfw">Tweets by babylonlabs_io</a> 
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    """
+    components.html(twitter_embed, height=400, scrolling=True)
+    
+    st.divider()
+    st.header("Admin")
+    if st.button("RESET & SEED DATA"):
+        with st.spinner("Planting evidence..."):
+            try:
+                from seed_crime_data import run_seed 
+                run_seed()
+                st.cache_data.clear()
+                st.success("Data Planted!")
+                st.rerun() 
+            except Exception as e:
+                st.error(f"Seeding failed: {e}")
+
+col1, col2 = st.columns([1, 15]) 
+with col2:
+    st.markdown('<h2 class="title-text">SAURON EYE</h2>', unsafe_allow_html=True)
+st.caption("The All-Seeing Lens for Babylon Chain")
+st.divider()
+
 df = load_data()
 
-tab1, tab2, tab3, tab4 = st.tabs(["Network Overview", "Cluster Map (Inspector)", "AI Analyst", "⚡ Protocol Activity"])
-
-with tab1:
+if page == "Network Overview":
+    st.header("Network Overview")
     if df.empty:
-        st.warning(" Database is empty or not initialized.")
-        st.info("Please go to the **Sidebar**, scroll down to **Admin**, and click **' RESET & SEED DATA'**.")
+        st.warning("Database is empty. Please use the Admin Panel in the Sidebar to Seed Data.")
     else:
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Transactions", len(df))
@@ -120,7 +120,7 @@ with tab1:
         st.subheader("Live Feed")
         st.dataframe(df[['timestamp', 'tx_hash', 'sender', 'amount', 'Risk Label']].head(10), use_container_width=True)
 
-with tab2:
+elif page == "Cluster Inspector":
     st.header("Wallet Cluster Inspector")
     
     if not df.empty and 'sender' in df.columns:
@@ -132,7 +132,6 @@ with tab2:
     
     if target_address:
         col_map, col_stats = st.columns([3, 1])
-        
         cluster_df = df.head(1000)
         
         with col_map:
@@ -140,7 +139,7 @@ with tab2:
                 html_map = generate_cluster_map(cluster_df, target_address)
                 components.html(html_map, height=600)
             else:
-                st.warning("No connections found for this address.")
+                st.warning("No connections found.")
 
         with col_stats:
             st.markdown("### Risk Profile")
@@ -152,14 +151,13 @@ with tab2:
             fan_outs = detector.detect_fan_out(min_recipients=1)
             
             if len(fan_outs) > 0:
-                st.error(" Fan-Out Detected")
+                st.error("Fan-Out Detected")
                 st.metric("Risk Score", "90/100")
             else:
-                st.success("Normal Behavior")
+                st.success(" Normal Behavior")
                 st.metric("Risk Score", "10/100")
                 
             st.divider()
-            
             if st.button("✨ AI Deep Analysis"):
                 if not api_key:
                     st.error("No API Key")
@@ -169,8 +167,33 @@ with tab2:
                         analysis = agent.analyze_wallet_deep_dive(target_address)
                         st.info(analysis)
 
-with tab3:
-    st.header(" Ask Sauron")
+elif page == "⚡ Protocol Activity":
+    st.header(" Protocol Activity Breakdown")
+    
+    if not df.empty and 'tx_type' in df.columns:
+        type_counts = df['tx_type'].value_counts().reset_index()
+        type_counts.columns = ['Type', 'Count']
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fig_pie = px.pie(type_counts, values='Count', names='Type', title="Transaction Distribution", hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+            st.plotly_chart(fig_pie)
+        with col_b:
+            st.markdown("### Key Metrics")
+            btc_stakes = df[df['tx_type'] == "BTC Stake"]
+            votes = df[df['tx_type'] == "Governance Vote"]
+            st.metric("BTC Delegations", len(btc_stakes))
+            st.metric("Governance Votes", len(votes))
+
+        st.subheader("Deep Dive Log")
+        display_cols = ['timestamp', 'tx_hash', 'tx_type', 'details']
+        final_cols = [c for c in display_cols if c in df.columns]
+        st.dataframe(df[final_cols], use_container_width=True)
+    else:
+        st.info("No protocol data found. Try resetting the data.")
+
+elif page == " AI Analyst":
+    st.header("Ask Sauron")
     agent = AnalyticsAgent(api_key=api_key)
     query = st.chat_input("Ask a question...")
     
@@ -181,33 +204,3 @@ with tab3:
             else:
                 with st.spinner("Thinking..."):
                     st.write(agent.ask(query))
-
-with tab4:
-    st.header("⚡ Protocol Activity Breakdown")
-    
-    if not df.empty and 'tx_type' in df.columns:
-        type_counts = df['tx_type'].value_counts().reset_index()
-        type_counts.columns = ['Type', 'Count']
-        
-        col_a, col_b = st.columns(2)
-        
-        with col_a:
-            fig_pie = px.pie(type_counts, values='Count', names='Type', title="Transaction Distribution", hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
-            st.plotly_chart(fig_pie)
-            
-        with col_b:
-            st.markdown("### Key Metrics")
-            btc_stakes = df[df['tx_type'] == "BTC_Stake"]
-            votes = df[df['tx_type'] == "Governance_Vote"]
-            delegations = df[df['tx_type'] == "Delegate"]
-            
-            st.metric("BTC Delegations (Staking)", len(btc_stakes))
-            st.metric("Governance Votes", len(votes))
-            st.metric("Validator Delegations", len(delegations))
-
-        st.subheader(" Deep Dive Log")
-        display_cols = ['timestamp', 'tx_hash', 'tx_type', 'details']
-        final_cols = [c for c in display_cols if c in df.columns]
-        st.dataframe(df[final_cols], use_container_width=True)
-    else:
-        st.info("No protocol data found. Try resetting the data.")
