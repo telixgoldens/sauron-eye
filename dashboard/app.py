@@ -17,7 +17,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
 # --- LOAD LOGO ---
-logo_path = "dashboard/assets/sauroneye.jpg" 
+logo_path = "dashboard/assets/sauroneye.png" 
 try:
     logo_img = Image.open(logo_path)
 except:
