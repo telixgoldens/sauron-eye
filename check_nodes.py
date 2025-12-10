@@ -2,7 +2,8 @@ import requests
 
 CANDIDATES = [
                 
-    "https://babylon.api.kjnodes.com",              
+    "https://babylon.api.kjnodes.com",  
+    "https://babylon-api.polkachu.com",            
     "https://babylon-mainnet.api.kjnodes.com", 
     "https://babylon-archive.nodes.guru/api",     
     "https://api.babylon.nodes.guru",               

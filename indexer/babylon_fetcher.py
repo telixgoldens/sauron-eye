@@ -17,8 +17,8 @@ load_dotenv()
 class BabylonIndexer:
     def __init__(self):
         self.NODES = [
-            "https://babylon-archive.nodes.guru/api",
             "https://babylon-api.polkachu.com",
+            "https://babylon-archive.nodes.guru/api",
             "https://babylon.api.kjnodes.com",
             "https://babylon-mainnet-api.nodes.guru",
             "https://babylon-api.lavenderfive.com"
@@ -163,7 +163,7 @@ class BabylonIndexer:
                 for i, resp in enumerate(responses):
                     try:
                         tx_hash = resp.get('txhash')
-                        timestamp_str = resp.get('timestamp', datetime.now().isoformat()) # Use block timestamp if available
+                        timestamp_str = resp.get('timestamp', datetime.now().isoformat()) 
                         
                         
                         body = None
